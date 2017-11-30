@@ -17,6 +17,7 @@
 double cnode[RUNMAX][MAXFRAMES];
 double data[RUNMAX][MAXFRAMES];
 double autocorr[RUNMAX][MAXFRAMES];
+double norm[RUNMAX];
 double jk_error[NMAX];
 double error[NMAX]; //RMSE error in |hFT|^2
 
@@ -50,6 +51,7 @@ int main(int argc, char **argv)
  
    FRAMES = STEPS/PERIOD;
    n = 0.8*FRAMES; // Number of real data points for which FFT is taken, discarding top 20% data
+   //printf("n %d\n",n);
  
    sprintf(data_file,"../Sim_dump_ribbon/L%d/W%d/k%.1f/cnode.bin",NX,NY,KAPPA);
    //printf("%s\n",data_file);
@@ -59,6 +61,7 @@ int main(int argc, char **argv)
 
    //We read the data file
    fread(&RUNS,sizeof(int),1,Fin);
+   //RUNS=10;
    //printf("RUNS %d\n",RUNS);
    for(int i=0;i<RUNS;i++)
    {
@@ -80,20 +83,17 @@ int main(int argc, char **argv)
 
    double avg;
    int iblo,start=0.2*FRAMES;
+   //printf("start %d\n",start);
    for(i=0; i<n; i++)
    {
-     data[RUNS][i]=0;
      for(iblo=0; iblo<RUNS; iblo++) // FIX NUMBER OF RUNS
-       data[RUNS][i] += cnode[iblo][start+i];
-     for(iblo=0; iblo<RUNS; iblo++) // FIX NUMBER OF RUNS
-       data[iblo][i] = (data[RUNS][i]-cnode[iblo][start+i])/ (RUNS-1.0);
-     data[RUNS][i] /=(RUNS*1.0);
+       data[iblo][i] = cnode[iblo][start+i];
    }
      	
-
-   for(iblo=0; iblo<=RUNS; iblo++)
+   
+   for(iblo=0; iblo<RUNS; iblo++)
    {
-     	   avg=0;
+     	   avg=0;//for each run
 
 	   for(i=0; i<n; i++)
 	     avg += data[iblo][i];
@@ -121,7 +121,7 @@ int main(int argc, char **argv)
     	   for(i=0; i<n; i++)
 	   {
       		corr_h[i] /= (n-i);
-		autocorr[iblo][i] = corr_h[i]/corr_h[0];
+		autocorr[iblo][i] = corr_h[i];
 	   }
 
 	   //for (i=0;i<n;i++)
@@ -130,38 +130,36 @@ int main(int argc, char **argv)
 	  //for (i=0;i<n;i++)
       		//printf("%d %.8g\n", i, corr_h[i]/corr_h[0]); 
    }
+
 /*
    for (i=0;i<n;i++)
-   	printf("%d %.8g %.8g %.8g %.8g %.8g\n", i, autocorr[0][i],autocorr[1][i],autocorr[2][i],autocorr[3][i],autocorr[4][i]);
+   	printf("%d %.8g %.8g %.8g %.8g %.8g %.8g\n", i, autocorr[0][i],autocorr[1][i],autocorr[2][i],autocorr[RUNS-2][i],autocorr[RUNS-1][i],autocorr[RUNS][i]);
 */
-   fftw_destroy_plan(pdir);
-   fftw_destroy_plan(pinv);
-   fftw_free(hd);
-   fftw_free(hFT);
-   fftw_free(corr_h);
 
-    /*JK_BIN_COUNT = run_cnt; //Number of Jack Knife bins
-	   
-    //		Jack Knife Error estimation	
-    
-    //		Total of Jack Knife blocks at each sampling interval	
-    for(i=0;i<n;i++)
-    {
-	jk_blocks[i][JK_BIN_COUNT]=0;
-	for(j=0;j<JK_BIN_COUNT;j++)
-	{
-		jk_blocks[i][JK_BIN_COUNT] += autocorr[j][i]; //summing IFT value at each i for different runs
-	}
-    }    
+/*
+   int f=100;
+   for(i=0;i<=RUNS;i++)
+	printf("%d %.8f\n",i,autocorr[i][f]);
+*/
 
-    //		Jack Knife Blocking	
-    for(i=0;i<n;i++)
-    {
-        for(j=0;j<JK_BIN_COUNT;j++)
-        { 
-		jk_blocks[i][j]= (jk_blocks[i][JK_BIN_COUNT] - autocorr[j][i])/(JK_BIN_COUNT-1);	
-	}
-    }*/
+   for(i=0; i<n; i++)
+   {
+     autocorr[RUNS][i]=0;
+     for(iblo=0; iblo<RUNS; iblo++)
+	     autocorr[RUNS][i]+= autocorr[iblo][i]; 
+     for(iblo=0; iblo<RUNS; iblo++)
+	     autocorr[iblo][i] = (autocorr[RUNS][i]- autocorr[iblo][i])/(RUNS-1);
+     autocorr[RUNS][i] /= RUNS;
+   }
+     for(iblo=0; iblo<=RUNS; iblo++)
+	     norm[iblo] = autocorr[iblo][0];
+   for(i=0; i<n; i++)
+   {
+     for(iblo=0; iblo<=RUNS; iblo++)
+	     autocorr[iblo][i]/= norm[iblo];
+   }
+
+
 
     double jk_error_term1[NMAX],jk_error_term2[NMAX];
     //		Jack Knife Error	
@@ -177,7 +175,7 @@ int main(int argc, char **argv)
     {
         for(j=0;j<JK_BIN_COUNT;j++)
         {
-		jk_error_term1[i] += autocorr[j][i] * autocorr[j][i];
+		jk_error_term1[i] += (autocorr[j][i] * autocorr[j][i]);
 	}
 	jk_error_term1[i] = (1.0/JK_BIN_COUNT) * jk_error_term1[i];
     }
@@ -190,9 +188,16 @@ int main(int argc, char **argv)
 	}
 	jk_error_term2[i] = jk_error_term2[i] * jk_error_term2[i];
         //	JK Error	
-	jk_error[i] = sqrt((JK_BIN_COUNT-1)*(jk_error_term1[i] - jk_error_term2[i]));
-	printf ("%d\t%.8g\t%.8g\n",i,autocorr[JK_BIN_COUNT][i],jk_error[i]);	
+	jk_error[i] = sqrt(((JK_BIN_COUNT-1)*(jk_error_term1[i]-jk_error_term2[i])));
+	printf ("%d\t%.8g\t%.8g\n",i,autocorr[RUNS][i],jk_error[i]);
+	//printf ("%d\t%.8g\t%.8g\t%.8g\t%.8g\t%.8g\n",i,autocorr[JK_BIN_COUNT][i],jk_error[i],jk_error_term1[i],jk_error_term2[i],sqrt(jk_error_term1[i]-jk_error_term2[i]));	
     }
+
+   fftw_destroy_plan(pdir);
+   fftw_destroy_plan(pinv);
+   fftw_free(hd);
+   fftw_free(hFT);
+   fftw_free(corr_h);
 
     return 0;   
 }
