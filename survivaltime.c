@@ -12,11 +12,12 @@
 #define RUNMAX 201
 #define NMAX 2000
 #define MAXFRAMES 20001
+#define MAXBINS 100
 
 double cnode[RUNMAX][MAXFRAMES];
 int survival_time[MAXLENGTH];
 
-int NX,NY,RUNS,STEPS,FRAMES;
+int NX,NY,RUNS,STEPS,FRAMES,CUTOFF;
 double KAPPA;
 
 void print_and_exit(char *, ...); //Print out an error message and exits
@@ -30,14 +31,15 @@ int main(int argc, char **argv)
    int i,RUNNUM;
 
    switch (argc){
-   case 5:
+   case 6:
        NX = atoi(argv[1]);
        NY = atoi(argv[2]);
        KAPPA = atof(argv[3]);
        STEPS = atoi(argv[4]);
+       CUTOFF = atoi(argv[5]);
        break;
    default:
-       print_and_exit("Usage Pass command line arguments:NX NY Kappa STEPS\n");
+       print_and_exit("Usage Pass command line arguments:NX NY Kappa STEPS (SURVIVAL TIME CUTOFF)\n");
    }
 
    FRAMES = STEPS/PERIOD;
@@ -69,9 +71,11 @@ int main(int argc, char **argv)
 		if((cnode[i][j-1]<0 && cnode[i][j]>0) || (cnode[i][j-1]>0 && cnode[i][j]<0))
 		{
 			time = j-1-start_time;
-			if(start_time != -1)
+			if(start_time != -1 && time != 0 && time > CUTOFF)//time=0 cross over back to back
                         {
                                 survival_time[count]=time;
+				//if(time == 0)
+					//printf("%d %d\n",j-1,start_time);
                                 count++;
                         }
                         start_time = j;
@@ -85,9 +89,26 @@ int main(int argc, char **argv)
   printf("Output file: %s\n",out_file);
   if(NULL==(Fout=fopen(out_file,"w")))
         print_and_exit("I could not open file with simulation survival time %s\n",out_file);
+
+/*
   for (int i=0;i<count;i++)
   {
         fprintf(Fout,"%d\n",survival_time[i]);
+  }
+*/
+
+  int freq[MAXBINS];
+  //Binning data to make histogram
+  for(int i=1;i<MAXBINS;i++)
+  {
+    freq[i-1]=0;
+    for(int j=0;j<count;j++)
+    {
+      if((survival_time[j] > (i*CUTOFF)) &&  ((survival_time[j] < (i+1)*CUTOFF)))
+        freq[i-1]++;
+    }
+    if(freq[i-1]>0)
+      fprintf(Fout,"%d\t%d\n",i,freq[i-1]);
   }
   fclose(Fout);
    return 0;   
