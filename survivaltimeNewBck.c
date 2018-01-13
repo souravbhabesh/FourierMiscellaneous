@@ -15,13 +15,12 @@
 
 double cnode[RUNMAX][MAXFRAMES];
 int survival_time[MAXLENGTH],orientation[MAXLENGTH];
-int filter_survival_time[MAXLENGTH],filter_orientation[MAXLENGTH];
 
 int NX,NY,RUNS,STEPS,FRAMES;
 double KAPPA;
 
 void print_and_exit(char *, ...); //Print out an error message and exits
-int left_shift_array(int [], int , int );
+
  
 int main(int argc, char **argv)
 {
@@ -84,6 +83,8 @@ int main(int argc, char **argv)
                 // orientation: Up (+1) Transition (0) Down (-1)
 		if(cnode[i][j]<-2)  //Down
 		{
+		  time_down++;
+                  orientation[cnt]=-1;
                   if(cnode[i][j-1]>-2)//cross over: transition to Down
                   {
                     survival_time[cnt]=time_tran;
@@ -91,24 +92,25 @@ int main(int argc, char **argv)
                     time_tran=0;
                     cnt++;
                   }
-                  time_down++;
-                  orientation[cnt]=-1;
                 }
 
                 if (cnode[i][j]>2)  //Up
                 {
+                  time_up++;
+                  orientation[cnt]=1;
                   if(cnode[i][j-1]<2) //cross over: transition to Up
                   {
                     survival_time[cnt]=time_tran;
                     time_tran=0;
                     cnt++;
                   }
-                  time_up++;
-                  orientation[cnt]=1;
+
 		}
 
                 if(cnode[i][j]>-2 && cnode[i][j]<2) // In Transition
                 {
+                  time_tran++;
+                  orientation[cnt]=0;
                   if(cnode[i][j-1]<-2) // cross over: Down to Transition
                   {
                     survival_time[cnt]=time_down;
@@ -122,80 +124,61 @@ int main(int argc, char **argv)
                     time_up=0;
                     cnt++;
                   }
-                  time_tran++;
-                  orientation[cnt]=0;
                 }
-            //Printing to output file
-            fprintf(Fout,"%d\t%.8f\t%d\t%d\t%d\t%d\t%d\n",j,cnode[i][j],orientation[cnt],threshold,-1*threshold,cnt,survival_time[cnt]);
-        }
-    }
+		//Printing to output file
+                //fprintf(Fout,"%d\t%.8f\t%d\t%d\t%d\n",j,cnode[i][j],orientation[cnt],threshold,-1*threshold);
+	}
+	
+   }
 
-    // Filtering out the small excursions
-    
-    for (int k=1;k<cnt;k++)
-    {
-        // Eliminating small excursions to Transition from Up/Down
-      if(((orientation[k-1]==-1 && orientation[k+1]==-1 && survival_time[k-1]>50) || (orientation[k-1]==1 && orientation[k+1]==1 && survival_time[k-1]>50)) && orientation[k]==0)
+/*
+  sprintf(out_file,"../Sim_dump_ribbon/L%d/W%d/k%.1f/survivaltime.log",NX,NY,KAPPA);
+  printf("Output file: %s\n",out_file);
+  if(NULL==(Fout=fopen(out_file,"w")))
+        print_and_exit("I could not open file with simulation survival time %s\n",out_file);
+*/
+
+  // Eliminating the small excursions from transition to either side
+  for (int i=1;i<cnt;i++)
+  {
+      if(orientation[i-1]==0 && orientation[i+1]==0 && (orientation[i]==1  || orientation[i]==-1))
       {
-          //printf("Excursion Survival time %d : %d\n",i,survival_time[k]);
-          if(survival_time[k]<10)
+          if(survival_time[i]<100)
           {
-              //orientation[k]=orientation[k-1];
-              survival_time[k-1]=++survival_time[k];
-              left_shift_array(survival_time,cnt-1,k);
-              left_shift_array(orientation,cnt-1,k);
-              cnt--;//since we have shifted on place left
+              orientation[i]=0;
           }
       }
-/*
-        // Eliminating small excursions to Up/Down from Transition
-        if(orientation[k-1]==0 && orientation[k+1]==0 && (orientation[k]==1  || orientation[k]==-1))
+
+      if(((orientation[i-1]==-1 && orientation[i+1]==-1) || (orientation[i-1]==1 && orientation[i+1]==1)) && orientation[i]==0)
+      {
+          printf("Survival time %d : %d\n",i,survival_time[i]);
+          if(survival_time[i]<50)
+          {
+              orientation[i]=orientation[i-1];
+          }
+      }
+  }
+
+   for(int i=1;i<RUNNUM;i++)
+   {
+        for(int j=0;j<FRAMES;j++)
         {
-            //printf("Survival time %d : %d at %d orientation %d\n",k,survival_time[k],j,orientation[k]);
-            if(survival_time[k]<100)
-            {
-                orientation[k]=0; 
-                //printf("2: Survival time %d : %d at %d orientation %d\n",k,survival_time[k],j,orientation[k]);
-            }
+            fprintf(Fout,"%d\t%.8f\t%d\t%d\t%d\n",j,cnode[i][j],orientation[cnt],threshold,-1*threshold);
         }
-*/      
-    }
-   
-    //printf("cnt %d\n",cnt);
-    int time_cnt=0.2*FRAMES;
-    for(int k=0;k<=cnt;k++)
-    {
-        //printf("Orientation[%d] = %d\n",k,orientation[k]);
-        for(int l=0; l < survival_time[k];l++)
-        {
-            printf("%d\t%d\t%d\t%d\n",time_cnt,orientation[k],survival_time[k],k);
-            time_cnt++;
-        }
-    }
-
-
-
-fclose(Fout);
-return 0;   
+   }
+   fclose(Fout);
+   return 0;   
 }
 
-int left_shift_array(int arr[], int size, int site)
-{
-    for(int i=site;i<size;i++)
-    {
-        arr[i]=arr[i+1];
-    }
-    return 0;
-}
 
 
 void print_and_exit(char *format, ...)
 {
-va_list list;
+    va_list list;
 
-va_start(list,format);
-vprintf(format,list);
-va_end(list);
-exit(1);
+    va_start(list,format);
+    vprintf(format,list);
+    va_end(list);
+    exit(1);
 }
 
