@@ -245,9 +245,10 @@ int main(int argc, char **argv)
     for(int k=0;k<scnt;k++)
     {
         //Printing to check sorting is working correctly
-        //printf("%d\t%d\t%d\n",k,survival_time_unsorted[k],survival_time_sorted[k]);
+        printf("%d\t%d\t%d\n",k,survival_time_unsorted[k],survival_time_sorted[k]);
     }
 
+  /*
     //Bin the sorted survival times
     //int BIN_SIZE=5;
     int bin[MAXLENGTH];
@@ -273,9 +274,10 @@ int main(int argc, char **argv)
     for(int k=0;k<bin_cnt;k++)
     {
         //printf("%d-%d\t%d\n",k*BIN_SIZE,(k+1)*BIN_SIZE,bin[k]);
-        printf("%d\t%d\n",k,bin[k]);
+        printf("%d\t%.8f\n",k,1.0*bin[k]/scnt);
     }
-   
+
+    */
 /*
     for(int k=0;k<=cnt;k++)
     {

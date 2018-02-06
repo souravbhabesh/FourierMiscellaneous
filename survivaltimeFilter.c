@@ -23,7 +23,7 @@ int survival_time[MAXLENGTH],orientation[MAXLENGTH];
 int filter_survival_time[MAXLENGTH],filter_orientation[MAXLENGTH];
 int survival_time_sorted[MAXLENGTH],survival_time_unsorted[MAXLENGTH];
 
-int NX,NY,RUNS,STEPS,FRAMES,BIN_SIZE;
+int NX,NY,RUNS,STEPS,FRAMES;
 double KAPPA,FILTER1,FILTER2;
 
 void print_and_exit(char *, ...); //Print out an error message and exits
@@ -38,17 +38,16 @@ int main(int argc, char **argv)
    int i,RUNNUM;
 
    switch (argc){
-   case 8:
+   case 7:
        NX = atoi(argv[1]);
        NY = atoi(argv[2]);
        KAPPA = atof(argv[3]);
        STEPS = atoi(argv[4]);
        FILTER1 = atof(argv[5]);
        FILTER2 = atof(argv[6]);
-       BIN_SIZE = atoi(argv[7]);
        break;
    default:
-       print_and_exit("Usage Pass command line arguments:NX NY Kappa STEPS FILTER1 FILTER2 BIN_SIZE\n");
+       print_and_exit("Usage Pass command line arguments:NX NY Kappa STEPS FILTER1 FILTER2\n");
    }
 
    FRAMES = STEPS/PERIOD;
@@ -70,7 +69,7 @@ int main(int argc, char **argv)
    //We read the data file
    fread(&RUNNUM,sizeof(int),1,Fin);
    printf("Total Runs: %d\n",RUNNUM);
-   //RUNNUM=1;//reading just the 1st run for checking 
+   RUNNUM=1;//reading just the 1st run for checking 
    for(int i=0;i<RUNNUM;i++)
    {
         for(int j=0;j<FRAMES;j++)
@@ -81,16 +80,16 @@ int main(int argc, char **argv)
    fclose(Fin);
 
    int cnt,time_up,time_down,time_tran,threshold=2,scnt=0; 
-   cnt=0;
    for(i=0;i<RUNNUM;i++)
    {
         time_up=0;
         time_down=0;
         time_tran=0;
+        cnt=0;
         //fprintf(Fout,"%d\t%.8f\t%d\t%d\t%d\n",998,cnode[i][998],orientation[cnt],threshold,-1*threshold);
 
         //Converting to Up, Down and Transition
-	for(int j=0.2*FRAMES;j<=FRAMES;j++)//Discarding top 20%
+	for(int j=0.2*FRAMES;j<=FRAMES;j++)//Discard first 20% data
         {
                 // orientation: Up (+1) Transition (0) Down (-1)
 		if(cnode[i][j]<-2)  //Down
@@ -137,9 +136,8 @@ int main(int argc, char **argv)
                   orientation[cnt]=0;
                 }
             //Printing to output file
-            fprintf(Fout,"%d\t%d\t%.8f\t%d\t%d\t%d\t%d\t%d\n",i,j,cnode[i][j],orientation[cnt],threshold,-1*threshold,cnt,survival_time[cnt-1]);
+            fprintf(Fout,"%d\t%.8f\t%d\t%d\t%d\t%d\t%d\n",j,cnode[i][j],orientation[cnt],threshold,-1*threshold,cnt,survival_time[cnt]);
         }
-   }
     
 
     // Eliminating small excursions to Transition from Up/Down uses FILTER1
@@ -210,22 +208,25 @@ int main(int argc, char **argv)
             }
         }
     }
-   
+   }
 
-/*
-   //Printing orientation after passing through the filters 
-    int time_cnt=0;
+    //Printing orientation after passing through the filters 
+    int time_cnt=0.2*FRAMES;
     for(int k=0;k<=cnt;k++)
     {
        for(int l=0; l < survival_time[k];l++)
         {
-            printf("%d\t%d\t%d\t%d\n",time_cnt+999,orientation[k],survival_time[k],k);
+            printf("%d\t%d\t%d\t%d\n",time_cnt,orientation[k],survival_time[k],k);
             time_cnt++;
         }
     }
-*/ 
+ 
 
-    printf("cnt %d\n",cnt);
+
+
+
+/*
+    //printf("cnt %d\n",cnt);
     int time_cnt=0.2*FRAMES;
     for(int k=0;k<=cnt;k++)
     {
@@ -237,6 +238,7 @@ int main(int argc, char **argv)
             scnt++;
         }
     }
+   }
 
 
     //Sort the survival times
@@ -244,12 +246,11 @@ int main(int argc, char **argv)
     printf("scnt = %d\n",scnt);    
     for(int k=0;k<scnt;k++)
     {
-        //Printing to check sorting is working correctly
-        //printf("%d\t%d\t%d\n",k,survival_time_unsorted[k],survival_time_sorted[k]);
+        printf("%d\t%d\t%d\n",k,survival_time_unsorted[k],survival_time_sorted[k]);
     }
 
     //Bin the sorted survival times
-    //int BIN_SIZE=5;
+    int BIN_SIZE=5;
     int bin[MAXLENGTH];
     int bin_cnt=1,bin_entry=0;
     for(int k=0;k<scnt;k++)
@@ -273,10 +274,10 @@ int main(int argc, char **argv)
     for(int k=0;k<bin_cnt;k++)
     {
         //printf("%d-%d\t%d\n",k*BIN_SIZE,(k+1)*BIN_SIZE,bin[k]);
-        printf("%d\t%d\n",k,bin[k]);
+        //printf("%d\t%d\n",k,bin[k]);
     }
    
-/*
+
     for(int k=0;k<=cnt;k++)
     {
         
